@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-nfs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-client-storageclass    #关联StorageClass对象
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: task-pv-pod
+spec:
+  volumes:
+    - name: task-pv-storage
+      persistentVolumeClaim:
+        claimName: test-nfs-pvc
+  containers:
+  - name: task-pv-container
+    image: nginx:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: "http-server"
+    env:
+    - name: TZ
+      value: Asia/Shanghai    #容器时区
+    volumeMounts:
+    - mountPath: "/usr/share/nginx/html"
+      name: task-pv-storage    #与PVC名称保持一致
+  nodeSelector:
+    kubernetes.io/hostname: sketc-ssh.master1

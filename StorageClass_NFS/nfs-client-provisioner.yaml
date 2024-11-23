@@ -17,39 +17,8 @@ spec:
       serviceAccountName: nfs-client-provisioner          #指定Service Account账户
       containers:
         - name: nfs-client-provisioner
-          image: quay.io/external_storage/nfs-client-provisioner:latest
+          image: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
           imagePullPolicy: IfNotPresent
-          ports:
-            - name: nfs
-              containerPort: 2049
-            - name: nfs-udp
-              containerPort: 2049
-              protocol: UDP
-            - name: nlockmgr
-              containerPort: 32803
-            - name: nlockmgr-udp
-              containerPort: 32803
-              protocol: UDP
-            - name: mountd
-              containerPort: 20048
-            - name: mountd-udp
-              containerPort: 20048
-              protocol: UDP
-            - name: rquotad
-              containerPort: 875
-            - name: rquotad-udp
-              containerPort: 875
-              protocol: UDP
-            - name: rpcbind
-              containerPort: 111
-            - name: rpcbind-udp
-              containerPort: 111
-              protocol: UDP
-            - name: statd
-              containerPort: 662
-            - name: statd-udp
-              containerPort: 662
-              protocol: UDP
           volumeMounts:
             - name: nfs-client-root
               mountPath: /persistentvolumes
@@ -67,3 +36,11 @@ spec:
           nfs:
             server: 10.50.1.130  #配置绑定的nfs服务器
             path: /nfs-storage/mysql-storage
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-client-storageclass
+provisioner: nfs-storage     #这里的名称要和provisioner配置文件中的环境变量PROVISIONER_NAME保持一致
+parameters:
+  archiveOnDelete: "false"   #false表示在删除PVC时不会对数据进行存档，即删除数据
