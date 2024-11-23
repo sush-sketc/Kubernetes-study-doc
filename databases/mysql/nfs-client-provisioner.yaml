@@ -1,0 +1,69 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nfs-client-provisioner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner          #指定Service Account账户
+      containers:
+        - name: nfs-client-provisioner
+          image: quay.io/external_storage/nfs-client-provisioner:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: nfs
+              containerPort: 2049
+            - name: nfs-udp
+              containerPort: 2049
+              protocol: UDP
+            - name: nlockmgr
+              containerPort: 32803
+            - name: nlockmgr-udp
+              containerPort: 32803
+              protocol: UDP
+            - name: mountd
+              containerPort: 20048
+            - name: mountd-udp
+              containerPort: 20048
+              protocol: UDP
+            - name: rquotad
+              containerPort: 875
+            - name: rquotad-udp
+              containerPort: 875
+              protocol: UDP
+            - name: rpcbind
+              containerPort: 111
+            - name: rpcbind-udp
+              containerPort: 111
+              protocol: UDP
+            - name: statd
+              containerPort: 662
+            - name: statd-udp
+              containerPort: 662
+              protocol: UDP
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: TZ
+              value: Asia/Shanghai    #容器时区
+            - name: PROVISIONER_NAME
+              value: nfs-storage       #配置provisioner的Name，确保该名称与StorageClass资源中的provisioner名称保持一致
+            - name: NFS_SERVER
+              value: 10.50.1.130          #配置绑定的nfs服务器
+            - name: NFS_PATH
+              value: /nfs-storage/mysql-storage          #配置绑定的nfs服务器目录，挂载路径
+      volumes:              #申明nfs数据卷
+        - name: nfs-client-root
+          nfs:
+            server: 10.50.1.130  #配置绑定的nfs服务器
+            path: /nfs-storage/mysql-storage

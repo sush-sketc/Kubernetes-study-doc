@@ -66,7 +66,7 @@ kubectl apply -f nfs-client-rbac.yaml
 ```
 如果执行命令成功则查看
 ```sh
-kubectl --kubeconfig kubeadm-config sa -A |grep nfs
+kubectl --kubeconfig kubeadm-config get sa -A |grep nfs
 #输出如下
 #default           nfs-client-provisioner               0         42s
 kubectl --kubeconfig kubeadm-config get clusterrole -A|grep nfs
@@ -75,4 +75,12 @@ kubectl --kubeconfig kubeadm-config get clusterrole -A|grep nfs
 kubectl --kubeconfig kubeadm-config get clusterrolebindings.rbac.authorization.k8s.io -A|grep nfs  
 #输出如下
 #nfs-client-provisioner-clusterrolebinding              ClusterRole/nfs-client-provisioner-clusterrole
+```
+### 6, 使用Deployment创建NFS Provisioners (NFS Provisioner即nfs-client)
+> 由于 1.20 版本启用了 selfLink，所以 k8s 1.20+ 版本通过 nfs provisioner 动态生成pv会报错，解决方法如下
+> vim /etc/kubernetes/manifests/kube-apiserver.yaml
+> - --feature-gates=RemoveSelfLink=false       #添加这一行
+
+```sh
+kubectl apply -f nfs-client-provisioner.yaml
 ```
