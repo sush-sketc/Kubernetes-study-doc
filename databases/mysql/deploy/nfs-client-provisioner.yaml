@@ -1,0 +1,37 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nfs-provisioner-01
+  namespace: sks-clusterset-db-ha1
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-provisioner-01
+  template:
+    metadata:
+      labels:
+        app: nfs-provisioner-01
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: nfs-provisioner-01  # 此处供应者名字供storageclass调用
+            - name: NFS_SERVER
+              value: 10.10.10.90   # 填入NFS的地址
+            - name: NFS_PATH
+              value: /nfs/mysql   # 填入NFS挂载的目录
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: 10.10.10.90   # 填入NFS的地址
+            path: /nfs/mysql   # 填入NFS挂载的目录
