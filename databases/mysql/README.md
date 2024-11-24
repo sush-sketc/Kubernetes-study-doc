@@ -26,6 +26,7 @@
 | [xtrabackup](https://docs.percona.com/percona-xtrabackup/8.0/release-notes.html) | 8.0.9 |
 
 > 注意: MySQL和xtrabacbup版本必须一致 <br>
+---
 
 ### 部署NFS-SERVER
 为了测试使用`sketc-ssh.master1` 主机作为NFS-SERVER
@@ -56,10 +57,12 @@ showmount -e 10.50.1.130
 # Export list for 10.50.1.130:
 # /nfs-storage/mysql-storage *
 ```
+---
 ### 创建NAMESPACE
 ```sh
 kubectl create namespace sks-clusterset-db-ha1
 ```
+---
 ### 创建 StorageClass动态存储(动态生成PersistentVolume)
 + 执行`kubectl apply -f  nfs-clinet-rbac.yaml` 创建RBAC权限
 + 执行`nfs-client-provisioner.yml` 创建nfs-client-provisioner
@@ -67,8 +70,9 @@ kubectl create namespace sks-clusterset-db-ha1
 + 执行`secret.yaml` 创建MySQL密钥 (Opaque类型，data里面的值必须填base64加密后的内容)
 + 执行`service.yaml` 创建无头服务(Headless Service)来控制网络域名
 + 执行
+---
 
-### （可选）制作XtraBackup镜像
+### (可选) 制作XtraBackup镜像
 由于当前外部容器镜像仓库中没有找到可用的ARM版本XtraBackup镜像，因此需制作XtraBackup（ARM）镜像，用于搭建StatefulSet MySQL集群。
 > 位置：./percona-xtrabackup <br>
 + 获取编译XtraBackup依赖
@@ -79,6 +83,8 @@ kubectl create namespace sks-clusterset-db-ha1
 参考XtraBackup官网编译ARM版本XtraBackup软件包流程，编写制作XtraBackup镜像的Dockerfile
 + 参考 Dockerfile  -->  ./percona-xtrabackup/Dockerfile
 + 参考 buildx command  -- >  ./percona-xtrabackup/buildx-arm64.sh <br>
+---
+
 
 
 
