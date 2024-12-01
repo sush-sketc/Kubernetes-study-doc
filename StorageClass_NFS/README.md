@@ -66,13 +66,13 @@ kubectl apply -f nfs-client-rbac.yaml
 ```
 如果执行命令成功则查看
 ```sh
-kubectl --kubeconfig kubeadm-config get sa -A |grep nfs
+kubectl  get sa -A |grep nfs
 #输出如下
 #default           nfs-client-provisioner               0         42s
-kubectl --kubeconfig kubeadm-config get clusterrole -A|grep nfs
+kubectl  get clusterrole -A|grep nfs
 #输出如下
 #nfs-client-provisioner-clusterrole                                     2024-11-23T09:33:05Z
-kubectl --kubeconfig kubeadm-config get clusterrolebindings.rbac.authorization.k8s.io -A|grep nfs  
+kubectl  get clusterrolebindings.rbac.authorization.k8s.io -A|grep nfs  
 #输出如下
 #nfs-client-provisioner-clusterrolebinding              ClusterRole/nfs-client-provisioner-clusterrole
 ```

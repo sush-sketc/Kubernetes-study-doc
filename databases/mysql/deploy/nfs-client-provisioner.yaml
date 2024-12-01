@@ -1,21 +1,21 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: nfs-provisioner-01
-  namespace: sks-clusterset-db-ha1
+  name: nfs-client-provisioner
+  namespace: nfs-provisioner
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
-      app: nfs-provisioner-01
+      app: nfs-client-provisioner
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
-        app: nfs-provisioner-01
+        app: nfs-client-provisioner
     spec:
-      serviceAccountName: nfs-client-provisioner
+      serviceAccountName: nfs-client-provisioner          #指定Service Account账户
       containers:
         - name: nfs-client-provisioner
           image: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
@@ -24,14 +24,24 @@ spec:
             - name: nfs-client-root
               mountPath: /persistentvolumes
           env:
+            - name: TZ
+              value: Asia/Shanghai    #容器时区
             - name: PROVISIONER_NAME
-              value: nfs-provisioner-01  # 此处供应者名字供storageclass调用
+              value: nfs-storage       #配置provisioner的Name，确保该名称与StorageClass资源中的provisioner名称保持一致
             - name: NFS_SERVER
-              value: 10.10.10.90   # 填入NFS的地址
+              value: 10.50.1.130          #配置绑定的nfs服务器
             - name: NFS_PATH
-              value: /nfs/mysql   # 填入NFS挂载的目录
-      volumes:
+              value: /nfs-storage/mysql-storage          #配置绑定的nfs服务器目录，挂载路径
+      volumes:              #申明nfs数据卷
         - name: nfs-client-root
           nfs:
-            server: 10.10.10.90   # 填入NFS的地址
-            path: /nfs/mysql   # 填入NFS挂载的目录
+            server: 10.50.1.130  #配置绑定的nfs服务器
+            path: /nfs-storage/mysql-storage
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-client-storageclass
+provisioner: nfs-storage     #这里的名称要和provisioner配置文件中的环境变量PROVISIONER_NAME保持一致
+parameters:
+  archiveOnDelete: "false"   #false表示在删除PVC时不会对数据进行存档，即删除数据

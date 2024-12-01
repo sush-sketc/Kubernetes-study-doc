@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: nfs-client-provisioner
-  namespace: sks-clusterset-db-ha1
+  namespace: nfs-provisioner
 
 ---
 kind: ClusterRole
@@ -34,7 +34,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: nfs-client-provisioner
-    namespace: sks-clusterset-db-ha1
+    namespace: nfs-provisioner
 roleRef:
   kind: ClusterRole
   name: nfs-client-provisioner-runner

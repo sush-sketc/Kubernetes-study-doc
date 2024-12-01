@@ -1,0 +1,42 @@
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: dashboard
+#   namespace: traefik
+# spec:
+#   entryPoints:
+#     - web
+#   routes:
+#     - match: Host(`sketc.com`)
+#       kind: Rule
+#       services:
+#         - name: api@internal
+#           kind: TraefikService
+#           namespace: traefik
+
+---
+#https
+#生成自签名证书 
+#openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=myapp2.test.com"
+#创建secret资源引用证书
+#kubectl create secret tls myapp2-tls --cert=tls.crt --key=tls.key
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dashboard
+  namespace: traefik
+spec:
+  entryPoints:
+    - websecure                    # 监听 websecure 这个入口点，也就是通过 443 端口来访问
+    - web
+    # - traefik
+  routes:
+  - match: Host(`sketc.com`) && (PathPrefix(`/dashboard`)
+    kind: Rule
+    services:
+    - name: api@internal
+      kind: TraefikService
+      namespace: traefik
+      port: 9000
+  tls:
+    secretName: traefik-dashboard-tls         # 指定tls证书名称
