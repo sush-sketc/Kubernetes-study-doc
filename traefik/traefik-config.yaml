@@ -41,7 +41,7 @@ data:
         allowCrossNamespace: true   #允许跨namespace
         allowEmptyServices: true    #允许空endpoints的service
     log:
-      filePath: "/etc/traefik/logs/traefik.log" # 设置调试日志文件存储路径，如果为空则输出到控制台
+      #filePath: "/etc/traefik/logs/traefik.log" # 设置调试日志文件存储路径，如果为空则输出到控制台
       level: "DEBUG"            # 设置调试日志级别
       format: "common"          # 设置调试日志格式
     accessLog:

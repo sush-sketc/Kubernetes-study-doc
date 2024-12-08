@@ -1,0 +1,149 @@
+apiVersion: v1
+data:
+  my.cnf: |+
+    [mysqld]
+    skip-host-cache                             # 不使用主机缓存
+    skip-name-resolve                           # 不解析主机名
+    datadir          = /var/lib/mysql           # 数据文件存放目录
+    socket           = /var/run/mysqld/mysqld.sock  # MySQL服务器套接字文件路径
+    secure-file-priv = /var/lib/mysql-files     # 指定安全文件的位置
+    pid-file         = /var/run/mysqld/mysqld.pid   # PID文件路径
+    user             = mysql                    # MySQL服务运行的用户
+    secure-file-priv = NULL                     # 禁用安全文件访问限制
+    server-id        = 1                        # 服务器唯一标识符
+    log-bin          = master-bin               # 启用二进制日志，并指定日志文件名
+    binlog_do_db     = db_k8s              # 仅记录指定数据库的操作到二进制日志
+    log_bin_index    = master-bin.index         # 二进制日志索引文件路径
+    binlog_ignore_db = information_schema       # 忽略记录指定数据库的操作到二进制日志
+    binlog_ignore_db = mysql                    # 忽略记录指定数据库的操作到二进制日志
+    binlog_ignore_db = performance_schema       # 忽略记录指定数据库的操作到二进制日志
+    binlog_ignore_db = sys                      # 忽略记录指定数据库的操作到二进制日志
+    binlog-format    = ROW                      # 设置二进制日志格式为行格式
+
+    [client]
+    socket           = /var/run/mysqld/mysqld.sock  # 客户端连接MySQL服务器时使用的套接字文件路径
+
+kind: ConfigMap
+metadata:
+  labels:
+    app: mysql-master
+  name: mysql-master-configmap
+  namespace: sketc-local-mysql1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deploy-mysql-master-svc  # 定义服务的名称
+  namespace: sketc-local-mysql1  # 定义服务所属的命名空间
+  labels:
+    app: mysql-master
+spec:
+  clusterIP: None
+  ports:
+  - port: 3306  # 服务暴露的端口号
+    name: mysql
+  selector:
+    app: mysql-master  # 选择器，选择哪些 Pod 作为后端
+---
+# 提供外部连接主节点
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-readwrite
+  namespace: sketc-local-mysql1
+  labels:
+    app: mysql
+spec:
+  ports:
+  - name: mysql
+    port: 3306
+    nodePort: 30306
+  selector:
+    statefulset.kubernetes.io/pod-name: deploy-mysql-master-0 
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: deploy-mysql-master  # StatefulSet 的名称
+  namespace: sketc-local-mysql1  # StatefulSet 所属的命名空间
+spec:
+  selector:
+    matchLabels:
+      app: mysql-master  # 选择器，用于选择管理的 Pod
+  serviceName: "deploy-mysql-master-svc"  # 关联的 Service 的名称
+  replicas: 1  # 副本数
+  template:
+    metadata:
+      labels:
+        app: mysql-master  # Pod 模板的标签
+    spec:
+      terminationGracePeriodSeconds: 10  # 终止优雅期的秒数
+      containers:
+      - args:
+        - --character-set-server=utf8mb4  # MySQL 参数设置
+        - --collation-server=utf8mb4_unicode_ci
+        - --lower_case_table_names=1
+        - --default-time_zone=+8:00
+        name: mysql-cluster-master  # 容器的名称
+        image: docker.io/library/mysql:8.0.30  # 容器镜像
+        ports:
+        - containerPort: 3306  # 容器监听的端口号
+          name: mysql
+        volumeMounts:
+        - name: mysql-master-data  # 挂载的持久化卷
+          mountPath: /var/lib/mysql
+        - name: mysql-master-conf  # 挂载的 ConfigMap
+          mountPath: /etc/my.cnf
+          readOnly: true
+          subPath: my.cnf
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - "-c"
+                - MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"
+                - mysqladmin ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            # Check we can execute queries over TCP (skip-networking is off).
+            command:
+              - /bin/sh
+              - "-c"
+              - MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"
+              - mysql -h 127.0.0.1 -u root -e "SELECT 1"
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1
+        env:  # 容器的环境变量
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: mysql-secret # 引用的 Secret 的名称
+      volumes:
+      - name: mysql-master-conf  # ConfigMap 的名称
+        configMap:
+          name: mysql-master-configmap  # ConfigMap 的名称
+          items:
+          - key: my.cnf  # ConfigMap 中的键值对
+            mode: 0644  # 文件权限
+            path: my.cnf  # 挂载路径
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-master-data
+        annotations: 
+          volume.beta.kubernetes.io/storage-class: nfs # 对应第2步创建的 StorageClass 的名称
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # storageClassName: "nfs" 不能这样写，需要在 annotations 字段传入，原因未知
+        resources:
+          requests:
+            storage: 4Gi

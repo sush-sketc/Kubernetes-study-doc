@@ -1,0 +1,127 @@
+apiVersion: v1
+data:
+  my.cnf: |+
+    [mysqld]
+    skip-host-cache  # 不使用主机缓存
+    skip-name-resolve  # 不进行主机名解析
+    datadir          = /var/lib/mysql  # MySQL 数据目录
+    socket           = /var/run/mysqld/mysqld.sock  # MySQL Socket 文件路径
+    secure-file-priv = /var/lib/mysql-files  # 安全文件目录
+    pid-file         = /var/run/mysqld/mysqld.pid  # MySQL 进程 ID 文件路径
+    user             = mysql  # MySQL 运行用户
+    secure-file-priv = NULL  # 安全文件权限设置
+    server-id        = 2  # 从节点服务器 ID
+    log-bin          = slave-bin  # 二进制日志文件名
+    relay-log        = slave-relay-bin  # 中继日志文件名
+    relay-log-index  = slave-relay-bin.index  # 中继日志索引文件名
+
+    [client]
+    socket           = /var/run/mysqld/mysqld.sock  # MySQL 客户端 Socket 文件路径
+
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: mysql-slave-01-configmap
+  namespace: sketc-local-mysql1
+
+---
+# Headless service for stable DNS entries of StatefulSet members.
+apiVersion: v1
+kind: Service
+metadata:
+  name: deploy-mysql-slave-svc
+  namespace: sketc-local-mysql1
+  labels:
+    app: mysql-slave
+spec:
+  clusterIP: None
+  ports:
+  - port: 3306
+  selector:
+    app: mysql-slave
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: deploy-mysql-slave-01  # MySQL从节点StatefulSet名称
+  namespace: sketc-local-mysql1  # 部署的命名空间
+spec:
+  selector:
+    matchLabels:
+      app: mysql-slave
+  serviceName: "deploy-mysql-slave-svc"  # 关联的Service名称
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-slave
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - args:
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+        - --lower_case_table_names=1
+        - --default-time_zone=+8:00
+        name: mysql-cluster-slave
+        # image: docker.io/library/mysql:8.0.34
+        image: docker.io/library/mysql:8.0.30  # MySQL镜像地址
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-cluster-slave01-data
+          mountPath: /var/lib/mysql
+        - name: mysql-cluster-slave01-conf
+          mountPath: /etc/my.cnf
+          readOnly: true
+          subPath: my.cnf
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - "-c"
+                - MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"
+                - mysqladmin ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            # Check we can execute queries over TCP (skip-networking is off).
+            command:
+              - /bin/sh
+              - "-c"
+              - MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"
+              - mysql -h 127.0.0.1 -u root -e "SELECT 1"
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1
+        env:  # 容器的环境变量
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: mysql-secret # 引用的 Secret 的名称
+      volumes:
+      - name: mysql-cluster-slave01-conf
+        configMap:
+          name: mysql-slave-01-configmap # ConfigMap名称
+          items:
+          - key: my.cnf
+            mode: 0644
+            path: my.cnf
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-cluster-slave01-data
+        annotations: 
+          volume.beta.kubernetes.io/storage-class: nfs # 对应第2步创建的 StorageClass 的名称
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # storageClassName: "nfs" 不能这样写，需要在 annotations 字段传入，原因未知
+        resources:
+          requests:
+            storage: 4Gi

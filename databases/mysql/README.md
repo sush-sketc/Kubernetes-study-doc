@@ -296,8 +296,6 @@ kubectl create namespace nfs-provisioner
       statefulset.kubernetes.io/pod-name: mysql-0 
     type: NodePort
   ```
-
-
 ---
 
 

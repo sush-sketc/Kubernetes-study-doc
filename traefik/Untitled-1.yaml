@@ -23,4 +23,3 @@ spec:
 # spec:
 #   basicAuth:
 #     secret: traefik-cert # Kubernetes secret named "secretName"
-#

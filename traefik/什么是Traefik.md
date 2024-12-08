@@ -48,3 +48,43 @@ Ingress Controller 收到请求，匹配 Ingress 转发规则，匹配到了就�
 ### 与`<font style="color:rgb(48, 49, 51);">kubernetes</font>`<font style="color:rgb(48, 49, 51);">交互</font>
 
 
+---
+
+### traefik 配置https
++ TLS
+```bash
+# 针对 "traefik"，"cert" 名字必须是 "tls.crt"， "key" 名字必须是 "tls.key"，"traefik-ingress-controller-xxxxx" pod 默认读取对应名字 
+# "-subj" 是可选项
+mkdir -p ~/addon/traefik/pki
+cd ~/addon/traefik/pki
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=sketc.com"
+
+# "traefik" 应用默认部署在 "kube-system" ，在对应 "namespace" 创建 "secret" 资源
+kubectl create secret tls who-tls --cert=tls.crt --key=tls.key  #--namespace=
+```
+
+#### Kubernetes CRD
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`sketc.com`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+    kind: Rule
+    services:
+    - name: api@internal
+      kind: TraefikService
+  tls:
+    secretName: traefik-cert
+```
+---
++ 测试访问
+```bash
+https://sketc.com:31075/dashboard/#/
+https://sketc.com:31075/api/http/routers?
+#如成功打开则说明正常
+```
